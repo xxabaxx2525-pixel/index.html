@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>トイレットペーパー適量診断</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#eef8f2;color:#25332e}
+.wrap{max-width:820px;margin:auto;padding:14px}
+.hero,.card{background:#fff;border-radius:24px;padding:20px;box-shadow:0 8px 24px rgba(40,122,87,.12);margin:14px 0}
+h1{color:#287a57;text-align:center;font-size:34px;line-height:1.2;margin:8px 0} h2{color:#287a57;margin:0 0 14px} h3{margin:18px 0 8px}
+.frog{font-size:54px;text-align:center}.crown{font-size:26px;text-align:center;color:#e5a900;margin-bottom:-18px}
+.lead{text-align:center;color:#66736e;font-weight:700}
+.steps{display:flex;gap:8px;overflow-x:auto;margin-bottom:16px}.step{border:0;border-radius:999px;padding:8px 12px;background:#e6f0eb;color:#557067;font-weight:800;white-space:nowrap}.step.on{background:#287a57;color:#fff}
+.note{background:#dff3e8;border-radius:18px;padding:13px;margin:14px 0;font-weight:700;color:#375348}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.choice{border:2px solid #d7e7df;background:#fff;border-radius:16px;padding:13px;text-align:left;font-weight:800}.choice.on{background:#dff3e8;border-color:#287a57;color:#287a57}.choice small{display:block;color:#66736e;font-weight:600;line-height:1.5;margin-top:4px}.choice.on small{color:#287a57}
+.nums{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.nums .choice{min-width:78px;text-align:center}
+input{width:100%;max-width:360px;border:2px solid #d7e7df;border-radius:16px;padding:12px;font-size:16px;font-weight:700}
+.nav{display:flex;gap:10px;margin-top:22px}.nav button,.copy,.toggle,.restart{border:0;border-radius:999px;padding:13px 18px;font-weight:900}.back{background:#fff;color:#287a57;border:2px solid #d7e7df!important}.next,.restart{background:#287a57;color:#fff;flex:1}.copy{background:#f4c542;color:#4a3a00}.toggle{width:100%;background:#fff;color:#287a57;text-align:left;border:2px solid #d7e7df}
+.resultTitle{background:#dff3e8;border-radius:20px;padding:18px;text-align:center}.label{font-size:30px;font-weight:900;color:#287a57}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:14px}.box{border:2px solid #edf3ef;border-radius:18px;padding:15px}.big{font-size:24px;font-weight:900;color:#287a57}.sub{color:#66736e;font-size:13px;font-weight:700}
+.message{background:#fff9d7;border-radius:18px;padding:14px;margin:14px 0;font-weight:700;color:#614c08}
+.formula{display:none;background:#f8fbf9;border:2px solid #d7e7df;border-radius:18px;padding:13px;margin-top:10px}.formula.show{display:block}.row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #e5eee8;padding:8px 0;font-size:14px}.row span:last-child{text-align:right;font-weight:900}
+pre{white-space:pre-wrap;background:#f8fbf9;border-radius:16px;padding:14px;overflow-x:auto;border:1px solid #e3eee7}
+@media(max-width:520px){.wrap{padding:8px}.hero,.card{border-radius:20px;padding:15px}.choices{grid-template-columns:1fr}.nav{flex-direction:column}.back{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero"><div class="crown">♛</div><div class="frog">🐸</div><h1>トイレットペーパー<br>適量診断</h1><p class="lead">あなたの家にちょうどいい量を、ケロティと一緒に見つけよう。</p></header>
+<main class="card"><div id="steps" class="steps"></div><div id="content"></div><div class="nav" id="nav"><button class="back" id="backBtn">戻る</button><button class="next" id="nextBtn">次へ進む</button></div></main>
+</div>
+<script>
+const wrapTypes={"普通巻き":1,"1.5倍巻き":1.5,"3倍巻き":3,"5倍巻き":5};
+const shoppingDays={"週2回以上":3,"週1回":7,"10日に1回":10,"2週間に1回":14,"月1回":30,"なくなりそうになったら買う":7};
+const bufferDays={"すっきり安心":3,"回転安心":7,"手間なし安心":14,"ゆとり安心":14,"非常時安心":14};
+const typeDescriptions={"回転安心":"使いながら回して管理したいタイプ","ゆとり安心":"少し多めにあると安心できるタイプ","手間なし安心":"買い物や管理の回数を減らしたいタイプ","すっきり安心":"少ない量でスッキリ持ちたいタイプ","非常時安心":"災害時にも困らない量を持ちたいタイプ"};
+const recommendedRefill={"すっきり安心":"残量ライン型","回転安心":"残量ライン型","手間なし安心":"定期購入型","ゆとり安心":"定期補充型","非常時安心":"定期補充型＋備蓄チェック"};
+const refillDescriptions={"残量ライン型":"残り〇ロールになったら買う方法","定期補充型":"月1回など、決まった日に確認して買う方法","定期購入型":"定期便などで、自動的に届く方法","まだ決めていない":"診断結果を見て決める方法"};
+const steps=["基本設定","普段使い","今の在庫","備蓄設定","収納上限","結果"];
+const form={type:"手間なし安心",shopping:"週1回",refill:"定期補充型",dailyWrap:"3倍巻き",daysPerRoll:5,buyWrap:"3倍巻き",rollsPerPack:4,stockNormal:0,stockOneHalf:0,stockTriple:10,stockFive:0,reserveMode:"ローリング型",reserveDays:30,storagePacks:3};
+let step=0,showFormula=false;
+function setField(k,v){form[k]=v;render()}
+function calc(f){
+ const dm=wrapTypes[f.dailyWrap], bm=wrapTypes[f.buyWrap], pack=f.rollsPerPack*bm;
+ const cur=f.stockNormal+f.stockOneHalf*1.5+f.stockTriple*3+f.stockFive*5;
+ const shop=shoppingDays[f.shopping], buf=bufferDays[f.type], res=f.reserveMode==="備蓄しない"?0:f.reserveDays;
+ let eff,total,note;
+ if(f.reserveMode==="ローリング型"){eff=Math.max(buf,res);total=shop+eff;note="ローリング型なので、備蓄分が日常のゆとり分も兼ねます。ゆとり日数と備蓄日数は二重に足さず、大きい方を使います。"}
+ else if(f.reserveMode==="別枠保管型"){eff=buf+res;total=shop+eff;note="別枠保管型なので、日常のゆとり分と備蓄分を分けて持ちます。"}
+ else{eff=buf;total=shop+eff;note="備蓄しない設定なので、買い物頻度と安心タイプのゆとり分で計算します。"}
+ const monthly=30/f.daysPerRoll, reserveRolls=res/f.daysPerRoll, totalRolls=total/f.daysPerRoll;
+ const buyLine=f.reserveMode==="備蓄しない"?Math.max(1,((shop+buf)/f.daysPerRoll)*.3):reserveRolls+1;
+ const storage=f.storagePacks*pack, natural=buyLine*dm+pack;
+ let label="ちょうどいい量です";
+ if(cur>storage)label="収納枠を超えています"; else if(cur<buyLine*dm)label="もう少しあると安心です"; else if(cur>=natural)label="少し多いかも";
+ let action="次の確認日を決める";
+ if(cur>storage)action="収納枠を見直すか、次回の購入を一度休む"; else if(f.reserveMode!=="備蓄しない"&&cur<reserveRolls*dm)action="備蓄ラインまで1パック補充する"; else if(cur<buyLine*dm)action="次の買い物で1パック買い足す"; else if(f.refill!==recommendedRefill[f.type]&&!(f.type==="非常時安心"&&f.refill==="定期補充型"))action="補充ルールを見直す";
+ const low=Math.floor(totalRolls), high=Math.ceil(totalRolls);
+ return{dm,pack,cur,currentDaily:cur/dm,shop,buf,res,eff,total,note,monthly,monthlyStd:monthly*dm,reserveRolls,totalRolls,buyLine,storage,natural,naturalDaily:natural/dm,label,action,low,high,lowPack:(low*dm/pack).toFixed(1),highPack:(high*dm/pack).toFixed(1),recommended:recommendedRefill[f.type]}
+}
+function msg(label){
+if(label==="収納枠を超えています")return[
+"今の量は、収納の枠をちょっと超えてるよ〜！",
+"量が多すぎると在庫確認がめんどくさくなったり、長期保管でほこりをかぶったり、床置きの原因にもなりやすいんだ。",
+"次の買い足しを1回休んで、普段管理する量を決めてみよう〜！"
+];
+if(label==="もう少しあると安心です")return[
+"今の量は、安心ラインより少し少ない感じ！",
+"今の状態は、あなたが設定した安心ラインを、少し下回っている状態だよ〜！",
+"備蓄って、『使わずに置いておくもの』というより、『減っても慌てなくていい安心のゆとり』なんだよね。",
+"次の買い物で1パック足して、安心ゾーンに戻しておこう〜🐸"
+];
+if(label==="少し多いかも")return[
+"今の量は、今の暮らしにはちょっと多めかも！",
+"でもこれは、『持ちすぎだからダメ！』って意味じゃないよ〜！",
+"しばらく追加購入しなくても回せる状態だから、買い足しタイミングだけ決めておこう〜🐸"
+];
+return[
+"今の量、とってもいいバランスだよ〜！",
+"買い足しライン・収納枠・補充タイミングのバランスが取りやすい状態なんだ。",
+"『どこで補充するか』だけ決めて、このペースを維持していこう〜🐸"
+]
+}
+function choice(v,c,k,d=""){return `<button class="choice ${v===c?"on":""}" onclick="setField('${k}','${v}')">${v}${d?`<small>${d}</small>`:""}</button>`}
+function nums(k,arr,s){return `<div class="nums">${arr.map(n=>`<button class="choice ${Number(form[k])===n?"on":""}" onclick="setField('${k}',${n})">${n}${s}</button>`).join("")}</div><input type="number" min="0" value="${form[k]}" oninput="setField('${k}',Number(this.value))" placeholder="自由入力${s}">`}
+function keroty(t){return `<div class="note">🐸 ${t}</div>`}
+function renderSteps(){document.getElementById("steps").innerHTML=steps.map((s,i)=>`<button class="step ${i===step?"on":""}" onclick="goStep(${i})">${i+1}. ${s}</button>`).join("")}
+function render(){renderSteps();const c=document.getElementById("content"),r=calc(form);
+if(step===0)c.innerHTML=`${keroty("まずは基本設定だよ。持ち方のクセと、買えるタイミングを見ていくね。")}<h2>基本設定</h2><h3>安心タイプ</h3><div class="choices">${Object.keys(bufferDays).map(v=>choice(v,form.type,"type",typeDescriptions[v])).join("")}</div><h3>買い物頻度</h3><div class="choices">${Object.keys(shoppingDays).map(v=>choice(v,form.shopping,"shopping")).join("")}</div><h3>今の補充ルール</h3><div class="choices">${Object.keys(refillDescriptions).map(v=>choice(v,form.refill,"refill",refillDescriptions[v])).join("")}</div>`;
+if(step===1)c.innerHTML=`${keroty("巻き数で実質量が変わるから、ここは大事だよ。")}<h2>普段使い</h2><h3>普段使いの巻きタイプ</h3><div class="choices">${Object.keys(wrapTypes).map(v=>choice(v,form.dailyWrap,"dailyWrap")).join("")}</div><h3>1ロールが何日でなくなる？</h3>${nums("daysPerRoll",[1,2,3,5,7,10],"日")}<h3>今後買い足す商品の巻きタイプ</h3><div class="choices">${Object.keys(wrapTypes).map(v=>choice(v,form.buyWrap,"buyWrap")).join("")}</div><h3>1パックあたりのロール数</h3>${nums("rollsPerPack",[4,6,8,12,18],"ロール")}`;
+if(step===2)c.innerHTML=`${keroty("今ある数が分かると、今すぐ買う必要があるかまで見えるよ。分からないところは0でOK。")}<h2>今の在庫</h2>${[["stockNormal","普通巻き"],["stockOneHalf","1.5倍巻き"],["stockTriple","3倍巻き"],["stockFive","5倍巻き"]].map(([k,l])=>`<h3>${l}</h3><input type="number" min="0" value="${form[k]}" oninput="setField('${k}',Number(this.value))">`).join("")}`;
+if(step===3)c.innerHTML=`${keroty("ローリング型なら、備蓄分が日常のゆとりも兼ねるよ。")}<h2>備蓄設定</h2><h3>備蓄の持ち方</h3><div class="choices">${["備蓄しない","ローリング型","別枠保管型"].map(v=>choice(v,form.reserveMode,"reserveMode")).join("")}</div>${form.reserveMode!=="備蓄しない"?`<h3>備蓄したい日数</h3>${nums("reserveDays",[3,7,14,30],"日")}`:""}`;
+if(step===4)c.innerHTML=`${keroty("適量は、管理できる量でもあるよ。収納の枠も一緒に見ていこう。")}<h2>収納上限</h2><h3>いつも買う商品で、何パックまで置ける？</h3>${nums("storagePacks",[1,2,3,4],"パック")}<div class="note">3倍巻き・5倍巻きはメーカーや巻きの太さでサイズ差があるため、収納量は目安です。</div>`;
+if(step===5){const lines=msg(r.label).map(x=>`<p>${x}</p>`).join("");const copy=copyText(r);c.innerHTML=`<div class="resultTitle"><div>診断結果</div><div class="label">${r.label}</div></div><div class="message">${lines}</div><div class="grid"><div class="box"><div>おすすめ量</div><div class="big">${form.dailyWrap}${r.low}〜${r.high}ロール分</div><div class="sub">約${r.lowPack}〜${r.highPack}パック分</div></div><div class="box"><div>1か月の使用量</div><div class="big">約${r.monthly.toFixed(1)}ロール</div><div class="sub">${form.dailyWrap}基準</div></div><div class="box"><div>今の在庫</div><div class="big">標準${Math.round(r.cur)}ロール分</div><div class="sub">${form.dailyWrap}換算 約${r.currentDaily.toFixed(1)}ロール</div></div><div class="box"><div>買い足し目安</div><div class="big">残り約${Math.ceil(r.buyLine)}ロール</div><div class="sub">近づいたら1パック</div></div><div class="box"><div>自然な最大ストック数</div><div class="big">約${r.naturalDaily.toFixed(1)}ロール</div><div class="sub">買い足し目安＋1パック分</div></div><div class="box"><div>おすすめ補充ルール</div><div class="big">${r.recommended}</div><div class="sub">${refillDescriptions[r.recommended.replace("＋備蓄チェック","")]||"備蓄分も月1回確認"}</div></div></div><div class="note">買い物頻度は「買えるタイミング」。補充頻度は「実際に買うタイミング」です。毎週買い物に行っていても、毎週トイレットペーパーを買う必要はありません。</div><div class="formula"><button class="toggle" onclick="toggleFormula()"><span>この量になった理由を見る</span><span>${showFormula?"−":"+"}</span></button><div class="formula-content ${showFormula?"show":""}"><p>${r.note}</p>${row("買い物頻度",`${form.shopping} → ${r.shop}日分`)}${row("安心タイプのゆとり",`${form.type} → ${r.buf}日分`)}${row("備蓄日数",`${form.reserveMode==="備蓄しない"?0:form.reserveDays}日分`)}${row("計算に使うゆとり・備蓄",`${r.eff}日分`)}${row("合計必要日数",`${r.shop}日 + ${r.eff}日 = ${r.total}日分`)}${row("1か月の使用量",`30日 ÷ ${form.daysPerRoll}日 = 約${r.monthly.toFixed(1)}ロール`)}${row("自然な最大ストック",`買い足し目安 約${Math.ceil(r.buyLine)}ロール + 1パック分 ${form.rollsPerPack}ロール = 約${r.naturalDaily.toFixed(1)}ロール`)}</div></div><h3>コピー用テキスト</h3><pre>${copy}</pre><button class="copy" onclick="copyResult()">コピーする</button><br><button class="restart" onclick="restart()">はじめから診断する</button>`}
+document.getElementById("backBtn").disabled=step===0;document.getElementById("nextBtn").disabled=step===steps.length-1;document.getElementById("nav").style.display=step===5?"none":"flex"}
+function row(l,v){return `<div class="row"><span>${l}</span><span>${v}</span></div>`}
+function copyText(r){return `【トイレットペーパー適量診断】
+・安心タイプ：${form.type}
+・おすすめ量：${form.dailyWrap}${r.low}〜${r.high}ロール分
+・1か月の使用量：約${r.monthly.toFixed(1)}ロール分
+・今の在庫：標準${Math.round(r.cur)}ロール分
+・判定：${r.label}
+・備蓄ライン：${form.reserveMode==="備蓄しない"?"設定なし":`${form.dailyWrap}約${Math.ceil(r.reserveRolls)}ロール分`}
+・買い足し目安：残り${form.dailyWrap}約${Math.ceil(r.buyLine)}ロールで1パック
+・自然な最大ストック数：約${r.naturalDaily.toFixed(1)}ロール
+・補充ルール：${r.recommended}
+・今日やること：${r.action}`}
+function goStep(i){step=i;showFormula=false;render();scrollTo({top:0,behavior:"smooth"})}
+function toggleFormula(){showFormula=!showFormula;render()}
+function copyResult(){navigator.clipboard.writeText(copyText(calc(form))).then(()=>alert("コピーしました"))}
+function restart(){step=0;showFormula=false;render();scrollTo({top:0,behavior:"smooth"})}
+document.getElementById("backBtn").onclick=()=>goStep(Math.max(0,step-1));
+document.getElementById("nextBtn").onclick=()=>goStep(Math.min(steps.length-1,step+1));
+render();
+</script>
+</body>
+</html>
